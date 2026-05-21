@@ -131,7 +131,7 @@ class _ArcMeterPainter extends CustomPainter {
 
     final rect = Rect.fromCircle(center: center, radius: radius);
 
-    // Track arc.
+    //============================>  Track Arc. <========================
     final trackPaint = Paint()
       ..color = trackColor
       ..style = PaintingStyle.stroke
@@ -139,7 +139,7 @@ class _ArcMeterPainter extends CustomPainter {
       ..strokeCap = StrokeCap.round;
     canvas.drawArc(rect, _startAngle, _sweepMax, false, trackPaint);
 
-    // Progress arc.
+    //============================>  Progress Arc. <========================
     if (percentage > 0) {
       final progressPaint = Paint()
         ..color = _progressColor

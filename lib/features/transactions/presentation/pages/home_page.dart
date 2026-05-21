@@ -107,33 +107,33 @@ class _HomePageState extends State<HomePage> {
                       currency: currency,
                     ),
                   ),
-              if (transactions.isEmpty)
-                const SliverFillRemaining(
-                  hasScrollBody: false,
-                  child: _EmptyState(),
-                )
-              else
-                SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
-                  sliver: SliverList(
-                    delegate: SliverChildBuilderDelegate(
-                      (context, i) {
-                        final tx = transactions[i];
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 8),
-                          child: TransactionListItem(
-                            key: ValueKey(tx.id),
-                            transaction: tx,
-                            onDelete: () => context
-                                .read<TransactionBloc>()
-                                .add(DeleteTransactionEvent(tx.id)),
-                          ),
-                        );
-                      },
-                      childCount: transactions.length,
+                  if (transactions.isEmpty)
+                    const SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: _EmptyState(),
+                    )
+                  else
+                    SliverPadding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
+                      sliver: SliverList(
+                        delegate: SliverChildBuilderDelegate(
+                          (context, i) {
+                            final tx = transactions[i];
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: TransactionListItem(
+                                key: ValueKey(tx.id),
+                                transaction: tx,
+                                onDelete: () => context
+                                    .read<TransactionBloc>()
+                                    .add(DeleteTransactionEvent(tx.id)),
+                              ),
+                            );
+                          },
+                          childCount: transactions.length,
+                        ),
+                      ),
                     ),
-                  ),
-                  ),
                 ],
               );
             },
@@ -164,14 +164,12 @@ class _SummaryHeader extends StatelessWidget {
 
     final now = DateTime.now();
     final labels = List.generate(
-        7,
-        (i) => DateFormat('E')
-            .format(now.subtract(Duration(days: 6 - i))));
+        7, (i) => DateFormat('E').format(now.subtract(Duration(days: 6 - i))));
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Arc meter card.
+        //============================>  Arc Meter Card. <========================
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
           child: Card(
@@ -219,7 +217,7 @@ class _SummaryHeader extends StatelessWidget {
           ),
         ),
 
-        // Line chart — full screen width, no card margin.
+        //============================>  Line Chart (Full Width). <========================
         Container(
           width: double.infinity,
           color: Colors.white,
@@ -237,7 +235,7 @@ class _SummaryHeader extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               SizedBox(
-                height: 140,
+                height: 220,
                 width: double.infinity,
                 child: LineChartWidget(data: chartData, labels: labels),
               ),
@@ -245,7 +243,7 @@ class _SummaryHeader extends StatelessWidget {
           ),
         ),
 
-        // Section header.
+        //============================>  Section Header. <========================
         Padding(
           padding: const EdgeInsets.fromLTRB(20, 20, 16, 8),
           child: Row(
@@ -260,8 +258,7 @@ class _SummaryHeader extends StatelessWidget {
               const Spacer(),
               Text(
                 '$transactionCount total',
-                style: TextStyle(
-                    color: Colors.grey.shade500, fontSize: 13),
+                style: TextStyle(color: Colors.grey.shade500, fontSize: 13),
               ),
             ],
           ),
@@ -284,14 +281,11 @@ class _StatChip extends StatelessWidget {
     return Column(
       children: [
         Text(label,
-            style:
-                TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+            style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
         const SizedBox(height: 4),
         Text(value,
             style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-                color: color)),
+                fontWeight: FontWeight.bold, fontSize: 16, color: color)),
       ],
     );
   }
