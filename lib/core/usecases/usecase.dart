@@ -1,0 +1,12 @@
+// DOMAIN LAYER — no Flutter imports allowed
+
+import 'package:dartz/dartz.dart';
+import 'package:spend_arc/core/error/failures.dart';
+
+abstract class UseCase<Type, Params> {
+  Future<Either<Failure, Type>> call(Params params);
+}
+
+class NoParams {
+  const NoParams();
+}
