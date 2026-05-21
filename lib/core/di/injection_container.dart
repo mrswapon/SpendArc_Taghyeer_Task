@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:spend_arc/core/network/network_info.dart';
 import 'package:spend_arc/core/sync/sync_service.dart';
 import 'package:spend_arc/core/sync/write_queue.dart';
+import 'package:spend_arc/features/settings/data/datasources/settings_local_datasource.dart';
 import 'package:spend_arc/features/settings/presentation/bloc/settings_bloc.dart';
 import 'package:spend_arc/features/transactions/data/datasources/transaction_local_datasource.dart';
 import 'package:spend_arc/features/transactions/data/datasources/transaction_remote_datasource.dart';
@@ -60,8 +61,12 @@ Future<void> init() async {
   sl.registerLazySingleton(
       () => DeleteTransaction(sl<TransactionRepository>()));
 
+  // ── Settings data source ─────────────────────────────────────────────────────
+  final settingsDs = await SettingsLocalDataSource.create();
+  sl.registerSingleton<SettingsLocalDataSource>(settingsDs);
+
   // ── Blocs ────────────────────────────────────────────────────────────────────
-  sl.registerFactory(() => SettingsBloc());
+  sl.registerFactory(() => SettingsBloc(sl<SettingsLocalDataSource>()));
 
   sl.registerFactory(
     () => TransactionBloc(

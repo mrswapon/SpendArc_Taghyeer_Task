@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
+import 'package:spend_arc/features/settings/presentation/bloc/settings_bloc.dart';
+import 'package:spend_arc/features/settings/presentation/bloc/settings_state.dart';
+import 'package:spend_arc/features/settings/presentation/pages/settings_page.dart';
 import 'package:spend_arc/features/transactions/domain/entities/transaction.dart';
 import 'package:spend_arc/features/transactions/presentation/bloc/transaction_bloc.dart';
 import 'package:spend_arc/features/transactions/presentation/pages/add_transaction_page.dart';
@@ -45,7 +48,18 @@ class _HomePageState extends State<HomePage> {
         actions: [
           IconButton(
             icon: const Icon(Icons.settings_outlined),
-            onPressed: () {},
+            onPressed: () {
+              final settingsBloc = context.read<SettingsBloc>();
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => BlocProvider.value(
+                    value: settingsBloc,
+                    child: const SettingsPage(),
+                  ),
+                ),
+              );
+            },
           ),
         ],
       ),
@@ -79,14 +93,20 @@ class _HomePageState extends State<HomePage> {
 
           final loaded = state is TransactionLoaded ? state : null;
 
-          return CustomScrollView(
-            slivers: [
-              SliverToBoxAdapter(
-                child: _SummaryHeader(
-                  loaded: loaded,
-                  transactionCount: transactions.length,
-                ),
-              ),
+          return BlocBuilder<SettingsBloc, SettingsState>(
+            builder: (context, settingsState) {
+              final currency = settingsState is SettingsLoaded
+                  ? settingsState.settings.currency
+                  : 'USD';
+              return CustomScrollView(
+                slivers: [
+                  SliverToBoxAdapter(
+                    child: _SummaryHeader(
+                      loaded: loaded,
+                      transactionCount: transactions.length,
+                      currency: currency,
+                    ),
+                  ),
               if (transactions.isEmpty)
                 const SliverFillRemaining(
                   hasScrollBody: false,
@@ -113,8 +133,10 @@ class _HomePageState extends State<HomePage> {
                       childCount: transactions.length,
                     ),
                   ),
-                ),
-            ],
+                  ),
+                ],
+              );
+            },
           );
         },
       ),
@@ -125,8 +147,13 @@ class _HomePageState extends State<HomePage> {
 class _SummaryHeader extends StatelessWidget {
   final TransactionLoaded? loaded;
   final int transactionCount;
+  final String currency;
 
-  const _SummaryHeader({this.loaded, required this.transactionCount});
+  const _SummaryHeader({
+    this.loaded,
+    required this.transactionCount,
+    this.currency = 'USD',
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -169,6 +196,7 @@ class _SummaryHeader extends StatelessWidget {
                     percentage: pct,
                     spent: spent,
                     budget: budget,
+                    currency: currency,
                   ),
                   const SizedBox(height: 12),
                   Row(
@@ -176,12 +204,12 @@ class _SummaryHeader extends StatelessWidget {
                     children: [
                       _StatChip(
                           label: 'Spent',
-                          value: '\$${spent.toStringAsFixed(0)}',
+                          value: '$currency ${spent.toStringAsFixed(0)}',
                           color: Colors.red.shade400),
                       _StatChip(
                           label: 'Remaining',
                           value:
-                              '\$${(budget - spent).clamp(0, double.infinity).toStringAsFixed(0)}',
+                              '$currency ${(budget - spent).clamp(0, double.infinity).toStringAsFixed(0)}',
                           color: Colors.green.shade500),
                     ],
                   ),
