@@ -45,14 +45,18 @@ class TransactionLoaded extends TransactionState {
   double get budgetUsageRatio =>
       monthlyBudget > 0 ? (totalExpenses / monthlyBudget).clamp(0.0, 1.0) : 0;
 
-  List<double> get last7DaysSpending {
+  List<double> get last7DaysSpending => _last7DaysByType(TransactionType.expense);
+
+  List<double> get last7DaysIncome => _last7DaysByType(TransactionType.income);
+
+  List<double> _last7DaysByType(TransactionType type) {
     final now = DateTime.now();
     return List.generate(7, (i) {
       final day = DateTime(now.year, now.month, now.day)
           .subtract(Duration(days: 6 - i));
       return transactions
           .where((t) =>
-              t.type == TransactionType.expense &&
+              t.type == type &&
               t.date.year == day.year &&
               t.date.month == day.month &&
               t.date.day == day.day)

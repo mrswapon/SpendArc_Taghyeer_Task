@@ -160,7 +160,14 @@ class _SummaryHeader extends StatelessWidget {
     final pct = loaded?.budgetUsageRatio ?? 0;
     final budget = loaded?.monthlyBudget ?? 5000;
     final spent = loaded?.totalExpenses ?? 0;
-    final chartData = loaded?.last7DaysSpending ?? List.filled(7, 0.0);
+    final expenseChartData =
+        loaded?.last7DaysSpending ?? List.filled(7, 0.0);
+    final incomeChartData = loaded?.last7DaysIncome ?? List.filled(7, 0.0);
+
+    final totalIncome =
+        incomeChartData.fold(0.0, (sum, value) => sum + value);
+    final totalExpense =
+        expenseChartData.fold(0.0, (sum, value) => sum + value);
 
     final now = DateTime.now();
     final labels = List.generate(
@@ -217,29 +224,133 @@ class _SummaryHeader extends StatelessWidget {
           ),
         ),
 
-        //============================>  Line Chart (Full Width). <========================
-        Container(
-          width: double.infinity,
-          color: Colors.white,
-          margin: const EdgeInsets.only(top: 12),
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Last 7 Days',
-                style: Theme.of(context)
-                    .textTheme
-                    .titleMedium
-                    ?.copyWith(color: Colors.grey.shade600),
-              ),
-              const SizedBox(height: 12),
-              SizedBox(
-                height: 220,
-                width: double.infinity,
-                child: LineChartWidget(data: chartData, labels: labels),
-              ),
-            ],
+        //============================>  Line Chart Card. <========================
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          child: Container(
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: Theme.of(context).cardTheme.color,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: Colors.grey.shade100),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.08),
+                  blurRadius: 20,
+                  offset: const Offset(0, 6),
+                ),
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.04),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            padding: const EdgeInsets.fromLTRB(18, 18, 18, 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context)
+                            .colorScheme
+                            .primary
+                            .withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(
+                        Icons.insights_rounded,
+                        size: 20,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Last 7 Days',
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleMedium
+                                ?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.grey.shade800,
+                                ),
+                          ),
+                          Text(
+                            'Income vs expense trend',
+                            style: TextStyle(
+                              color: Colors.grey.shade500,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _ChartSummaryTile(
+                        label: 'Income',
+                        value: '$currency ${totalIncome.toStringAsFixed(0)}',
+                        color: const Color(0xFF2E7D32),
+                        icon: Icons.arrow_upward_rounded,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _ChartSummaryTile(
+                        label: 'Expense',
+                        value: '$currency ${totalExpense.toStringAsFixed(0)}',
+                        color: const Color(0xFFE53935),
+                        icon: Icons.arrow_downward_rounded,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: const [
+                    _ChartLegendItem(
+                      color: Color(0xFF66BB6A),
+                      label: 'Income',
+                    ),
+                    SizedBox(width: 12),
+                    _ChartLegendItem(
+                      color: Color(0xFFEF5350),
+                      label: 'Expense',
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  height: 240,
+                  width: double.infinity,
+                  padding: const EdgeInsets.fromLTRB(4, 12, 8, 0),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.65),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.9),
+                    ),
+                  ),
+                  child: LineChartWidget(
+                    expenseData: expenseChartData,
+                    incomeData: incomeChartData,
+                    labels: labels,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
 
@@ -264,6 +375,117 @@ class _SummaryHeader extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _ChartLegendItem extends StatelessWidget {
+  final Color color;
+  final String label;
+
+  const _ChartLegendItem({required this.color, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(
+              color: color,
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: color.withValues(alpha: 0.4),
+                  blurRadius: 4,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: TextStyle(
+              color: Colors.grey.shade700,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ChartSummaryTile extends StatelessWidget {
+  final String label;
+  final String value;
+  final Color color;
+  final IconData icon;
+
+  const _ChartSummaryTile({
+    required this.label,
+    required this.value,
+    required this.color,
+    required this.icon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: color.withValues(alpha: 0.15)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, size: 14, color: color),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: Colors.grey.shade600,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

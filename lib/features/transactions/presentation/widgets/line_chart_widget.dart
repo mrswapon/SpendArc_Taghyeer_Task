@@ -1,255 +1,337 @@
 import 'dart:math';
-import 'dart:ui' show lerpDouble;
-import 'package:flutter/foundation.dart' show listEquals;
+
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
-class LineChartWidget extends StatefulWidget {
-  final List<double> data; // 7 values, one per day (oldest → newest)
+class LineChartWidget extends StatelessWidget {
+  final List<double> expenseData;
+  final List<double> incomeData;
   final List<String> labels;
 
   const LineChartWidget({
     super.key,
-    required this.data,
+    required this.expenseData,
+    required this.incomeData,
     this.labels = const [],
   });
 
-  @override
-  State<LineChartWidget> createState() => _LineChartWidgetState();
-}
-
-class _LineChartWidgetState extends State<LineChartWidget>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _progress;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1200),
-    );
-    _progress = CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeInOut,
-    );
-    _controller.forward();
-  }
-
-  @override
-  void didUpdateWidget(LineChartWidget old) {
-    super.didUpdateWidget(old);
-    if (!listEquals(old.data, widget.data)) {
-      _controller.forward(from: 0);
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
+  static const _expenseBarIndex = 0;
+  static const _incomeBarIndex = 1;
+  static const _incomeColor = Color(0xFF2E7D32);
+  static const _expenseColor = Color(0xFFE53935);
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _progress,
-      builder: (context, _) => CustomPaint(
-        painter: _LineChartPainter(
-          data: widget.data,
-          labels: widget.labels,
-          progress: _progress.value,
-          lineColor: Theme.of(context).colorScheme.primary,
-          gridColor: Colors.grey.shade200,
-          labelStyle: Theme.of(context)
-              .textTheme
-              .labelSmall
-              ?.copyWith(color: Colors.grey) ??
-              const TextStyle(fontSize: 10, color: Colors.grey),
+    final primary = Theme.of(context).colorScheme.primary;
+
+    final labelStyle = Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: Colors.grey.shade500,
+          fontSize: 11,
+          fontWeight: FontWeight.w500,
+        ) ??
+        TextStyle(
+          fontSize: 11,
+          color: Colors.grey.shade500,
+          fontWeight: FontWeight.w500,
+        );
+
+    final pointCount = _resolvePointCount();
+    if (pointCount == 0) {
+      return _EmptyChart(labelStyle: labelStyle);
+    }
+
+    final normalizedExpense = _normalizeSeries(expenseData, pointCount);
+    final normalizedIncome = _normalizeSeries(incomeData, pointCount);
+    final normalizedLabels = _normalizeLabels(pointCount);
+    final maxY = _computeMaxY(normalizedExpense, normalizedIncome);
+    final yInterval = max(maxY / 4, 1.0);
+    final isToday = pointCount - 1;
+    final hasAnyValue = [...normalizedExpense, ...normalizedIncome]
+        .any((value) => value > 0);
+
+    return LineChart(
+      _chartData(
+        normalizedExpense: normalizedExpense,
+        normalizedIncome: normalizedIncome,
+        normalizedLabels: normalizedLabels,
+        maxY: maxY,
+        yInterval: yInterval,
+        pointCount: pointCount,
+        isToday: isToday,
+        hasAnyValue: hasAnyValue,
+        labelStyle: labelStyle,
+        primary: primary,
+      ),
+      duration: const Duration(milliseconds: 1200),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
+  LineChartData _chartData({
+    required List<double> normalizedExpense,
+    required List<double> normalizedIncome,
+    required List<String> normalizedLabels,
+    required double maxY,
+    required double yInterval,
+    required int pointCount,
+    required int isToday,
+    required bool hasAnyValue,
+    required TextStyle labelStyle,
+    required Color primary,
+  }) {
+    return LineChartData(
+      minX: 0,
+      maxX: pointCount <= 1 ? 0 : (pointCount - 1).toDouble(),
+      minY: 0,
+      maxY: maxY,
+      clipData: const FlClipData.all(),
+      backgroundColor: Colors.transparent,
+      gridData: FlGridData(
+        show: true,
+        drawVerticalLine: false,
+        horizontalInterval: yInterval,
+        getDrawingHorizontalLine: (value) => FlLine(
+          color: value == 0
+              ? Colors.grey.shade300
+              : Colors.grey.shade200.withValues(alpha: 0.7),
+          strokeWidth: value == 0 ? 1.2 : 1,
+          dashArray: value == 0 ? null : [6, 6],
+        ),
+      ),
+      borderData: FlBorderData(show: false),
+      titlesData: FlTitlesData(
+        topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+        rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+        leftTitles: AxisTitles(
+          sideTitles: SideTitles(
+            showTitles: true,
+            reservedSize: 38,
+            interval: yInterval,
+            getTitlesWidget: (value, meta) {
+              if (value < 0 || value > maxY) {
+                return const SizedBox.shrink();
+              }
+              final text = value >= 1000
+                  ? '${(value / 1000).toStringAsFixed(1)}k'
+                  : value.toStringAsFixed(0);
+              return SideTitleWidget(
+                meta: meta,
+                child: Text(text, style: labelStyle),
+              );
+            },
+          ),
+        ),
+        bottomTitles: AxisTitles(
+          sideTitles: SideTitles(
+            showTitles: true,
+            reservedSize: 32,
+            interval: 1,
+            getTitlesWidget: (value, meta) {
+              if (value != value.roundToDouble()) {
+                return const SizedBox.shrink();
+              }
+              final index = value.toInt();
+              if (index < 0 || index >= normalizedLabels.length) {
+                return const SizedBox.shrink();
+              }
+              final isLastDay = index == isToday;
+              return SideTitleWidget(
+                meta: meta,
+                child: Text(
+                  normalizedLabels[index],
+                  style: labelStyle.copyWith(
+                    color: isLastDay ? primary : Colors.grey.shade500,
+                    fontWeight: isLastDay ? FontWeight.w700 : FontWeight.w500,
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+      lineTouchData: LineTouchData(
+        handleBuiltInTouches: true,
+        touchSpotThreshold: 28,
+        getTouchedSpotIndicator: (barData, spotIndexes) {
+          final color = _colorForBarIndex(_barIndexFromData(barData));
+          return spotIndexes.map((_) {
+            return TouchedSpotIndicatorData(
+              FlLine(
+                color: color.withValues(alpha: 0.25),
+                strokeWidth: 1.5,
+                dashArray: [4, 4],
+              ),
+              FlDotData(
+                getDotPainter: (_, __, ___, ____) => FlDotCirclePainter(
+                  radius: 6,
+                  color: Colors.white,
+                  strokeWidth: 3,
+                  strokeColor: color,
+                ),
+              ),
+            );
+          }).toList();
+        },
+        touchTooltipData: LineTouchTooltipData(
+          tooltipBorderRadius: BorderRadius.circular(12),
+          tooltipPadding:
+              const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          tooltipMargin: 12,
+          fitInsideHorizontally: true,
+          fitInsideVertically: true,
+          getTooltipColor: (spot) => _colorForBarIndex(spot.barIndex),
+          getTooltipItems: (touchedSpots) {
+            return touchedSpots.map((spot) {
+              final label =
+                  spot.barIndex == _incomeBarIndex ? 'Income' : 'Expense';
+              return LineTooltipItem(
+                '$label  •  ${spot.y.toStringAsFixed(0)}',
+                const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 12,
+                  height: 1.4,
+                ),
+              );
+            }).toList();
+          },
+        ),
+      ),
+      lineBarsData: [
+        _buildBarData(
+          data: normalizedExpense,
+          color: _expenseColor,
+          showAreaFill: hasAnyValue,
+        ),
+        _buildBarData(
+          data: normalizedIncome,
+          color: _incomeColor,
+          showAreaFill: false,
+        ),
+      ],
+    );
+  }
+
+  int _barIndexFromData(LineChartBarData barData) {
+    final color = barData.color;
+    if (color == _incomeColor) return _incomeBarIndex;
+    return _expenseBarIndex;
+  }
+
+  Color _colorForBarIndex(int barIndex) {
+    return barIndex == _incomeBarIndex ? _incomeColor : _expenseColor;
+  }
+
+  int _resolvePointCount() {
+    return max(
+      expenseData.length,
+      max(incomeData.length, labels.length),
+    );
+  }
+
+  List<double> _normalizeSeries(List<double> data, int length) {
+    if (data.length == length) return data;
+    if (data.length > length) return data.sublist(0, length);
+    return [...data, ...List<double>.filled(length - data.length, 0)];
+  }
+
+  List<String> _normalizeLabels(int length) {
+    if (labels.length >= length) return labels.sublist(0, length);
+    return [
+      ...labels,
+      ...List.generate(
+        length - labels.length,
+        (i) => 'D${labels.length + i + 1}',
+      ),
+    ];
+  }
+
+  double _computeMaxY(List<double> expense, List<double> income) {
+    final allValues = [...expense, ...income];
+    if (allValues.isEmpty) return 1;
+    final peak = allValues.reduce(max);
+    return peak <= 0 ? 1 : peak * 1.2;
+  }
+
+  LineChartBarData _buildBarData({
+    required List<double> data,
+    required Color color,
+    required bool showAreaFill,
+  }) {
+    final spots = _toSpots(data);
+    if (spots.isEmpty) {
+      return LineChartBarData(
+        spots: const [FlSpot(0, 0)],
+        show: false,
+        color: color,
+      );
+    }
+
+    return LineChartBarData(
+      spots: spots,
+      isCurved: spots.length >= 2,
+      curveSmoothness: 0.28,
+      preventCurveOverShooting: true,
+      color: color,
+      barWidth: 3,
+      isStrokeCapRound: true,
+      isStrokeJoinRound: true,
+      shadow: Shadow(
+        color: color.withValues(alpha: 0.2),
+        blurRadius: 6,
+        offset: const Offset(0, 2),
+      ),
+      dotData: FlDotData(
+        show: true,
+        getDotPainter: (spot, _, __, ___) => FlDotCirclePainter(
+          radius: spot.y > 0 ? 4.5 : 3.5,
+          color: Colors.white,
+          strokeWidth: 2.5,
+          strokeColor: color,
+        ),
+      ),
+      belowBarData: BarAreaData(
+        show: showAreaFill && spots.length >= 2,
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            color.withValues(alpha: 0.14),
+            color.withValues(alpha: 0.02),
+          ],
         ),
       ),
     );
   }
+
+  List<FlSpot> _toSpots(List<double> data) {
+    return List.generate(
+      data.length,
+      (i) => FlSpot(i.toDouble(), data[i]),
+    );
+  }
 }
 
-class _LineChartPainter extends CustomPainter {
-  final List<double> data;
-  final List<String> labels;
-  final double progress; // 0.0 → 1.0
-  final Color lineColor;
-  final Color gridColor;
+class _EmptyChart extends StatelessWidget {
   final TextStyle labelStyle;
 
-  const _LineChartPainter({
-    required this.data,
-    required this.labels,
-    required this.progress,
-    required this.lineColor,
-    required this.gridColor,
-    required this.labelStyle,
-  });
-
-  static const _padL = 48.0;
-  static const _padR = 16.0;
-  static const _padT = 16.0;
-  static const _padB = 36.0;
-  static const _dotRadius = 4.0;
+  const _EmptyChart({required this.labelStyle});
 
   @override
-  void paint(Canvas canvas, Size size) {
-    if (data.isEmpty) return;
-
-    final chartRect = Rect.fromLTRB(
-      _padL,
-      _padT,
-      size.width - _padR,
-      size.height - _padB,
-    );
-
-    final maxVal = data.reduce(max) * 1.15;
-    final minVal = 0.0;
-    final range = maxVal - minVal == 0 ? 1.0 : maxVal - minVal;
-
-    double xOf(int i) =>
-        chartRect.left + i / (data.length - 1) * chartRect.width;
-    double yOf(double v) =>
-        chartRect.bottom - (v - minVal) / range * chartRect.height;
-
-    _drawGrid(canvas, chartRect, maxVal, range);
-    _drawAxes(canvas, chartRect);
-    _drawLine(canvas, chartRect, xOf, yOf);
-    _drawDots(canvas, chartRect, xOf, yOf);
-    _drawLabels(canvas, size, chartRect, xOf);
-  }
-
-  void _drawGrid(Canvas canvas, Rect r, double maxVal, double range) {
-    final paint = Paint()
-      ..color = gridColor
-      ..strokeWidth = 1;
-    const steps = 4;
-    for (int i = 0; i <= steps; i++) {
-      final y = r.bottom - (i / steps) * r.height;
-      canvas.drawLine(Offset(r.left, y), Offset(r.right, y), paint);
-
-      // Y-axis labels.
-      final val = (maxVal * i / steps);
-      _paintText(
-        canvas,
-        val >= 1000 ? '${(val / 1000).toStringAsFixed(1)}k' : val.toStringAsFixed(0),
-        Offset(r.left - 4, y),
-        align: TextAlign.right,
-      );
-    }
-  }
-
-  void _drawAxes(Canvas canvas, Rect r) {
-    final paint = Paint()
-      ..color = Colors.grey.shade400
-      ..strokeWidth = 1.5;
-    canvas.drawLine(Offset(r.left, r.top), Offset(r.left, r.bottom), paint);
-    canvas.drawLine(
-        Offset(r.left, r.bottom), Offset(r.right, r.bottom), paint);
-  }
-
-  void _drawLine(
-      Canvas canvas, Rect r, double Function(int) xOf, double Function(double) yOf) {
-    if (data.length < 2) return;
-
-    final linePaint = Paint()
-      ..color = lineColor
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.5
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
-
-    final fillPaint = Paint()
-      ..shader = LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [
-          lineColor.withValues(alpha: 0.25),
-          lineColor.withValues(alpha: 0.0),
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.show_chart_rounded,
+              size: 40, color: Colors.grey.shade300),
+          const SizedBox(height: 8),
+          Text(
+            'No chart data yet',
+            style: labelStyle.copyWith(fontSize: 13),
+          ),
         ],
-      ).createShader(r);
-
-    final linePath = Path();
-    final fillPath = Path();
-
-    final totalSegments = data.length - 1;
-    final progressPts = progress * totalSegments;
-
-    linePath.moveTo(xOf(0), yOf(data[0]));
-    fillPath.moveTo(xOf(0), r.bottom);
-    fillPath.lineTo(xOf(0), yOf(data[0]));
-
-    for (int i = 1; i < data.length; i++) {
-      if (i - 1 >= progressPts) break;
-
-      final t = (progressPts - (i - 1)).clamp(0.0, 1.0);
-      final x = lerpDouble(xOf(i - 1), xOf(i), t)!;
-      final y = lerpDouble(yOf(data[i - 1]), yOf(data[i]), t)!;
-
-      linePath.lineTo(x, y);
-      fillPath.lineTo(x, y);
-
-      if (t < 1.0) break;
-    }
-
-    fillPath.lineTo(linePath.getBounds().right, r.bottom);
-    fillPath.close();
-
-    canvas.drawPath(fillPath, fillPaint);
-    canvas.drawPath(linePath, linePaint);
+      ),
+    );
   }
-
-  void _drawDots(
-      Canvas canvas, Rect r, double Function(int) xOf, double Function(double) yOf) {
-    final totalSegments = data.length - 1;
-    final progressPts = progress * totalSegments;
-
-    final dotPaint = Paint()..color = lineColor;
-    final whitePaint = Paint()
-      ..color = Colors.white
-      ..style = PaintingStyle.fill;
-
-    for (int i = 0; i < data.length; i++) {
-      if (i > progressPts + 0.5) break;
-      final center = Offset(xOf(i), yOf(data[i]));
-      canvas.drawCircle(center, _dotRadius + 2, whitePaint);
-      canvas.drawCircle(center, _dotRadius, dotPaint);
-    }
-  }
-
-  void _drawLabels(Canvas canvas, Size size, Rect r, double Function(int) xOf) {
-    for (int i = 0; i < data.length; i++) {
-      final label = i < labels.length ? labels[i] : 'D${i + 1}';
-      _paintText(
-        canvas,
-        label,
-        Offset(xOf(i), r.bottom + 6),
-        align: TextAlign.center,
-      );
-    }
-  }
-
-  void _paintText(Canvas canvas, String text, Offset position,
-      {TextAlign align = TextAlign.left}) {
-    final tp = TextPainter(
-      text: TextSpan(text: text, style: labelStyle),
-      textDirection: TextDirection.ltr,
-      textAlign: align,
-    )..layout();
-
-    final dx = align == TextAlign.right
-        ? position.dx - tp.width
-        : align == TextAlign.center
-            ? position.dx - tp.width / 2
-            : position.dx;
-
-    tp.paint(canvas, Offset(dx, position.dy - tp.height / 2));
-  }
-
-  @override
-  bool shouldRepaint(_LineChartPainter old) =>
-      old.progress != progress || !listEquals(old.data, data);
 }

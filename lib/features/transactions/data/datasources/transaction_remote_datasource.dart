@@ -98,6 +98,14 @@ class MockTransactionRemoteDataSource implements TransactionRemoteDataSource {
       typeIndex: TransactionType.income.index,
     ),
     TransactionModel(
+      id: 'remote-4',
+      title: 'Freelance Project',
+      amount: 850.00,
+      date: DateTime.now().subtract(const Duration(days: 2)),
+      category: 'Income',
+      typeIndex: TransactionType.income.index,
+    ),
+    TransactionModel(
       id: 'remote-3',
       title: 'Electric Bill',
       amount: 120.00,

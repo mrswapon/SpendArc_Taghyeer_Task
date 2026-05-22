@@ -40,10 +40,13 @@ class SpendArcApp extends StatelessWidget {
         theme: ThemeData(
           useMaterial3: true,
           colorScheme: ColorScheme.fromSeed(
-            seedColor: const Color(0xFF6750A4),
+            seedColor: const Color(0xFFB359C5),
+          ).copyWith(
+            primary: const Color(0xFFB359C5),
           ),
           cardTheme: const CardThemeData(
-            surfaceTintColor: Colors.white,
+            color: Color(0xFFF9E3FC),
+            surfaceTintColor: Colors.transparent,
           ),
         ),
         home: const HomePage(),
