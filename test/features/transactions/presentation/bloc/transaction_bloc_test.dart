@@ -34,6 +34,7 @@ void main() {
     date: DateTime(2024, 6, 1),
     category: 'Food',
     type: TransactionType.expense,
+
   );
 
   final tTransactions = [tTransaction];
