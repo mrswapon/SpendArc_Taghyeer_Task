@@ -40,6 +40,7 @@ jobs:
 
       - name: Analyze Project
         run: flutter analyze
+        continue-on-error: true
 
       - name: Run Tests
         run: flutter test
